@@ -6,6 +6,7 @@ package com.grace.recordself.entity;
 public class Folder extends BaseEntity {
     public long parentId;
     public String serverId;
+    public String serverName;
     public String displayName;
     public String path;
     public int totalCount;
