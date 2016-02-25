@@ -15,7 +15,29 @@ public class DBHelper extends SQLiteOpenHelper {
     private static final String DB_NAME = "record.db";
     private Context mContext;
 
-    public DBHelper(Context context) {
+    private static DBHelper sSingleton = null;
+
+    private static final String MESSAGES_CLEANUP_TRIGGER_SQL =
+            "DELETE FROM " + Body.TABLE_NAME +
+                    " WHERE "+ BaseContent.COLUMN_ID + "=" +
+                    "old." + Message.COLUMN_BODY_ID + ";";
+
+    private static final String FOLDERS_CLEANUP_TRIGGER_SQL =
+            "DELETE FROM " + Message.TABLE_NAME +
+                    " WHERE "+ Message.COLUMN_FOLDER_ID + "=" +
+                    "old." + BaseContent.COLUMN_ID + ";" +
+            "DELETE FROM " + Folder.TABLE_NAME +
+                    " WHERE "+ Folder.COLUMN_PARENT_ID + "=" +
+                    "old." + BaseContent.COLUMN_ID + ";";
+
+    public static synchronized  DBHelper getInstance(Context context) {
+        if (null == sSingleton) {
+            sSingleton = new DBHelper(context);
+        }
+        return sSingleton;
+    }
+
+    /* package */ DBHelper(Context context) {
         super(context, DB_NAME, null, DB_VERSION);
         mContext = context;
     }
@@ -25,10 +47,6 @@ public class DBHelper extends SQLiteOpenHelper {
         dropTables(db);
         bootstrapDB(db);
 
-    }
-
-    private void create(SQLiteDatabase db) {
-        db.execSQL("CREATE TABLE " + Account.TABLE_NAME + " IF NOT EXIST ()");
     }
 
     private void dropTables(SQLiteDatabase db) {
@@ -48,7 +66,11 @@ public class DBHelper extends SQLiteOpenHelper {
                 + Score.COLUMN_TOTAL + " LONG DEFAULT 0,  "
                 + Score.COLUMN_LEVEL_TYPE + " INTEGER DEFAULT 0, "
                 + BaseContent.COLUMN_CREATE_TIME + " LONG DEFAULT 0, "
-                + BaseContent.COLUMN_MODIFY_TIME + " LONG DEFAULT 0);");
+                + BaseContent.COLUMN_MODIFY_TIME + " LONG DEFAULT 0, "
+                + "UNIQUE (" + Score.COLUMN_SERVER_ID + "));");
+        db.execSQL("CREATE INDEX scoreIndex ON " + Score.TABLE_NAME + " (" +
+                BaseContent.COLUMN_ID +
+                ");");
     }
 
     private void createHeadPicTable(SQLiteDatabase db) {
@@ -58,7 +80,11 @@ public class DBHelper extends SQLiteOpenHelper {
                 + HeadPic.COLUMN_PIC_URL + " TEXT, "
                 + HeadPic.COLUMN_TIME_STAMP + " LONG, "
                 + BaseContent.COLUMN_CREATE_TIME + " LONG DEFAULT 0, "
-                + BaseContent.COLUMN_MODIFY_TIME + " LONG DEFAULT 0);");
+                + BaseContent.COLUMN_MODIFY_TIME + " LONG DEFAULT 0), "
+                + "UNIQUE (" + BaseContent.COLUMN_ID + "));");
+        db.execSQL("CREATE INDEX headPicIndex ON " + HeadPic.TABLE_NAME + " (" +
+                BaseContent.COLUMN_ID +
+                ");");
     }
 
     private void createAccountTable(SQLiteDatabase db) {
@@ -80,7 +106,11 @@ public class DBHelper extends SQLiteOpenHelper {
                 + Account.COLUMN_PROVINCE + " TEXT, "
                 + Account.COLUMN_CITY + " TEXT, "
                 + BaseContent.COLUMN_CREATE_TIME + " LONG DEFAULT 0, "
-                + BaseContent.COLUMN_MODIFY_TIME + " LONG DEFAULT 0);");
+                + BaseContent.COLUMN_MODIFY_TIME + " LONG DEFAULT 0), "
+                + "UNIQUE (" + Account.COLUMN_SERVER_ID + "));");
+        db.execSQL("CREATE INDEX accountIndex ON " + Account.TABLE_NAME + " (" +
+                BaseContent.COLUMN_ID +
+                ");");
     }
 
     private void createMessageTable(SQLiteDatabase db) {
@@ -88,6 +118,7 @@ public class DBHelper extends SQLiteOpenHelper {
                 + BaseContent.COLUMN_ID + " LONG, "
                 + Message.COLUMN_SERVER_ID + " TEXT PRIMARY KEY, "
                 + Message.COLUMN_BODY_ID + " LONG DEFAULT 0, "
+                + Message.COLUMN_FOLDER_ID + " LONG DEFAULT 0, "
                 + Message.COLUMN_PIC_TAG + " INTEGER DEFAULT 0, "
                 + Message.COLUMN_READ + " INTEGER DEFAULT 0, "
                 + Message.COLUMN_FAVORITE + " INTEGER DEFAULT 0, "
@@ -96,7 +127,11 @@ public class DBHelper extends SQLiteOpenHelper {
                 + Message.COLUMN_ORDER + " TEXT, "
                 + Message.COLUMN_DATE + " LONG DEFAULT 0, "
                 + BaseContent.COLUMN_CREATE_TIME + " LONG DEFAULT 0, "
-                + BaseContent.COLUMN_MODIFY_TIME + " LONG DEFAULT 0);");
+                + BaseContent.COLUMN_MODIFY_TIME + " LONG DEFAULT 0), "
+                + "UNIQUE (" + Message.COLUMN_SERVER_ID + "));");
+        db.execSQL("CREATE INDEX messageIndex ON " + Message.TABLE_NAME + " (" +
+                BaseContent.COLUMN_ID +
+                ");");
     }
 
     private void createBodyTable(SQLiteDatabase db) {
@@ -108,7 +143,11 @@ public class DBHelper extends SQLiteOpenHelper {
                 + Body.COLUMN_CONTENT + " TEXT, "
                 + Body.COLUMN_DATE + " LONG DEFAULT 0, "
                 + BaseContent.COLUMN_CREATE_TIME + " LONG DEFAULT 0, "
-                + BaseContent.COLUMN_MODIFY_TIME + " LONG DEFAULT 0);");
+                + BaseContent.COLUMN_MODIFY_TIME + " LONG DEFAULT 0), "
+                + "UNIQUE (" + Body.COLUMN_SERVER_ID + ")); ");
+        db.execSQL("CREATE INDEX bodyIndex ON " + Body.TABLE_NAME + " (" +
+                BaseContent.COLUMN_ID +
+                ");");
     }
 
     private void createFolderTable(SQLiteDatabase db) {
@@ -123,7 +162,11 @@ public class DBHelper extends SQLiteOpenHelper {
                 + Folder.COLUMN_UNREAD_COUNT + " INTEGER DEFAULT 0, "
                 + Folder.COLUMN_ABILITIES + " INTEGER DEFAULT 0, "
                 + BaseContent.COLUMN_CREATE_TIME + " LONG DEFAULT 0, "
-                + BaseContent.COLUMN_MODIFY_TIME + " LONG DEFAULT 0);");
+                + BaseContent.COLUMN_MODIFY_TIME + " LONG DEFAULT 0), "
+                + "UNIQUE (" + Folder.COLUMN_SERVER_ID + ")); ");
+        db.execSQL("CREATE INDEX folderIndex ON " + Folder.TABLE_NAME + " (" +
+                BaseContent.COLUMN_ID +
+                ");");
     }
 
     private void bootstrapDB(SQLiteDatabase db) {
@@ -138,6 +181,16 @@ public class DBHelper extends SQLiteOpenHelper {
         createBodyTable(db);
 
         createFolderTable(db);
+
+        db.execSQL("CREATE TRIGGER message_cleanup_delete DELETE ON " + Message.TABLE_NAME + " " +
+                "BEGIN " +
+                MESSAGES_CLEANUP_TRIGGER_SQL +
+                "END");
+
+        db.execSQL("CREATE TRIGGER folder_cleanup_delete DELETE ON " + Folder.TABLE_NAME + " " +
+                "BEGIN " +
+                FOLDERS_CLEANUP_TRIGGER_SQL +
+                "END");
     }
 
     @Override
@@ -148,4 +201,5 @@ public class DBHelper extends SQLiteOpenHelper {
             return;
         }
     }
+
 }

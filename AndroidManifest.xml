@@ -1,6 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
         package="com.grace.recordself">
+    <permission android:name="com.grace.recordself.READ_RECORD" android:protectionLevel="normal"/>
+    <permission android:name="com.grace.recordself.WRITE_RECORD" android:protectionLevel="normal"/>
+
+    <uses-permission android:name="com.grace.recordself.READ_RECORD"/>
+    <uses-permission android:name="com.grace.recordself.WRITE_RECORD"/>
+
     <uses-sdk
         android:minSdkVersion="17"
         android:targetSdkVersion="21"/>
@@ -20,5 +26,11 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <provider android:name=".database.RecordProvider" android:authorities="com.grace.recordself"
+                  android:label="@string/provider_label"
+                  android:multiprocess="false"
+                  android:exported="false"
+                  android:readPermission="com.grace.recordself.READ_RECORD"
+                  android:writePermission="com.grace.recordself.WRITE_RECORD" />
     </application>
 </manifest>
